@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Quiz {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  answersJson    String
+  calcJson       String
+  email          String?
+  consentPd      Boolean  @default(false)
+  consentHealth  Boolean  @default(false)
+  utmJson        String   @default("{}")
+  orders         Order[]
+  plan           Plan?
+}
+
+model Order {
+  id        Int       @id @default(autoincrement())
+  quizId    String
+  quiz      Quiz      @relation(fields: [quizId], references: [id])
+  amountRub String
+  status    String    @default("pending")
+  token     String    @unique
+  email     String?
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+}
+
+model Plan {
+  id        String   @id @default(cuid())
+  quizId    String   @unique
+  quiz      Quiz     @relation(fields: [quizId], references: [id])
+  status    String   @default("generating")
+  content   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

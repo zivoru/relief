@@ -1,0 +1,50 @@
+import type { Activity, Experience, Sex } from "@/lib/psmf/config";
+
+export type QuizAnswers = {
+  gym: string;
+  goal: string;
+  sex: Sex;
+  age: number;
+  heightCm: number;
+  weightKg: number;
+  bodyFatPct: number;
+  steps: number;
+  activity: Activity;
+  experience: Experience;
+  likedFoods: string[];
+  dislikedFoods: string[];
+  allergens: string[];
+  stopList: string[];
+  store: string;
+  budget: number;
+  screening: string[];
+};
+
+export type CalcResult = {
+  mode: "psmf" | "soft";
+  sex: Sex;
+  weightKg: number;
+  heightCm: number;
+  age: number;
+  bodyFatPct: number;
+  lbmKg: number;
+  category: "lean" | "overweight" | "obese";
+  categoryLabel: string;
+  proteinG: number;
+  fatG: number;
+  carbG: number;
+  dietCalories: number;
+  bmr: number;
+  tef: number;
+  stepsKcal: number;
+  trainingKcal: number;
+  trainingMinutes: number;
+  maintenanceCalories: number;
+  deficit: number;
+  phaseDays: number;
+  phaseLabel: string;
+  refeed: "after" | "weekly" | "none" | "soft";
+  forecastKg: number;
+  forecastWeeks: number;
+  forecastLabel: string;
+};

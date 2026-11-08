@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Рельеф — сушка за 14 дней без потери мышц
 
-## Getting Started
+Одностраничный квиз: пользователь проходит 10 шагов, видит прогноз по жиру и покупает персональный план на 14 дней (меню, рефиды, тренировки, выход из диеты).
 
-First, run the development server:
+Цифры считает код по формулам PSMF. Нейросеть только оформляет меню. Если `LLM_API_KEY` не задан, используется шаблонный план.
+
+## Запуск
 
 ```bash
+npm install
+npx prisma db push
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Откройте [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Пока `PAYMENT_MODE=mock` или не заполнен `ROBOKASSA_LOGIN`, оплата пропускается и сразу открывается план.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Переменные окружения
 
-## Learn More
+Скопируйте `.env.example` в `.env`.
 
-To learn more about Next.js, take a look at the following resources:
+- `ROBOKASSA_*` — боевая оплата. ResultURL: `https://ваш-домен/api/robokassa/result`
+- `LLM_API_KEY` / `LLM_API_URL` / `LLM_MODEL` — OpenAI-совместимый API или YandexGPT
+- `RESEND_API_KEY` — письмо со ссылкой на план
+- `NEXT_PUBLIC_YM_ID` — Яндекс Метрика, цели: `quiz_start`, `quiz_step_N`, `quiz_complete`, `checkout_start`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Для продакшена замените SQLite в `prisma/schema.prisma` на PostgreSQL (Neon) и поменяйте `DATABASE_URL`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## UTM для рилсов
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Каждый ролик ведите на `/?utm_source=instagram&utm_campaign=reel_1`.
