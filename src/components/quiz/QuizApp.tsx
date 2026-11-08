@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BodyFatCard } from "@/components/quiz/BodyFatCard";
 import {
-  ArrowIcon,
   ArrowIcon2,
   Choice,
   FancySlider,
@@ -158,7 +157,7 @@ const defaultAnswers: QuizAnswers = {
   screening: [],
 };
 
-type Screen = "landing" | "quiz" | "loading" | "teaser" | "pay" | "error";
+type Screen = "landing" | "quiz" | "loading" | "pay" | "error";
 
 function utmFromLocation(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -188,6 +187,21 @@ export function QuizApp() {
   const [loadTick, setLoadTick] = useState(0);
   const [editingBudget, setEditingBudget] = useState(false);
   const [editingSteps, setEditingSteps] = useState(false);
+
+  useEffect(() => {
+    if (screen !== "pay") return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.background;
+    const prevBody = body.style.background;
+    const fill = "linear-gradient(to bottom, #FF8A3D, #FF5C1A)";
+    html.style.background = fill;
+    body.style.background = fill;
+    return () => {
+      html.style.background = prevHtml;
+      body.style.background = prevBody;
+    };
+  }, [screen]);
 
   const fatOptions = BODY_FAT_OPTIONS[answers.sex];
   const food = FOOD_CARDS[foodIndex];
@@ -239,7 +253,7 @@ export function QuizApp() {
       setOrderId(data.orderId);
       setAmountRub(data.amountRub);
       trackGoal("quiz_complete", { category: data.calc.category });
-      setTimeout(() => setScreen("teaser"), 2200);
+      setTimeout(() => setScreen("pay"), 2200);
     } catch {
       setScreen("error");
     }
@@ -382,62 +396,15 @@ export function QuizApp() {
     );
   }
 
-  if (screen === "teaser" && calc) {
-    return (
-      <Shell>
-        <p className="mb-6 text-center text-[22px] font-extrabold text-brand-600">
-          {BRAND.name}
-        </p>
-        <Title
-          title="Прогноз готов"
-          subtitle="Это бесплатный расчёт. Полный план откроется после оплаты."
-        />
-        <div className="rounded-[28px] bg-white p-5 shadow-sm">
-          <p className="text-sm text-stone-400">Процент жира</p>
-          <p className="text-4xl font-extrabold">{calc.bodyFatPct}%</p>
-          <p className="mt-1 text-sm text-stone-500">{calc.categoryLabel}</p>
-          {gymName ? (
-            <p className="mt-1 text-sm text-stone-400">Зал: {gymName}</p>
-          ) : null}
-          <div className="mt-5 rounded-[20px] bg-orange-50 p-4">
-            <p className="text-sm font-semibold text-brand-700">Прогноз</p>
-            <p className="mt-1 text-2xl font-extrabold">−{calc.forecastKg} кг жира</p>
-            <p className="mt-1 text-sm text-stone-600">{calc.forecastLabel}</p>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <MiniStat label="Белок" value={`${calc.proteinG} г`} />
-            <MiniStat label="Калории фазы" value={`${calc.dietCalories}`} />
-            <MiniStat label="ОБМ" value={`${calc.lbmKg} кг`} />
-            <MiniStat label="Режим" value={calc.mode === "soft" ? "мягкий" : "PSMF"} />
-          </div>
-        </div>
-        <div className="relative mt-4 overflow-hidden rounded-[28px] bg-white p-5 shadow-sm">
-          <p className="font-extrabold">Меню на 14 дней</p>
-          <p className="mt-2 text-sm text-stone-500">
-            День 1: омлет из белка, грудка, лосось…
-          </p>
-          <div className="pointer-events-none absolute inset-0 bg-white/55 backdrop-blur-[3px]" />
-          <p className="relative z-10 mt-8 text-center text-sm font-semibold text-stone-600">
-            Откроется после оплаты
-          </p>
-        </div>
-        <p className="mt-4 text-xs leading-5 text-stone-400">
-          Не является медицинской рекомендацией.
-        </p>
-        <NextBar label="Получить полный план" onNext={() => setScreen("pay")} />
-      </Shell>
-    );
-  }
-
   if (screen === "pay" && calc) {
     const price = Number(amountRub).toLocaleString("ru-RU");
     return (
-      <div className="min-h-dvh bg-linear-to-b from-[#FF8A3D] to-[#FF5C1A] text-white">
+      <div className="fixed inset-0 z-30 min-h-dvh overflow-y-auto bg-linear-to-b from-[#FF8A3D] to-[#FF5C1A] text-white">
         <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-5 pb-10 pt-4">
           <div className="flex items-center gap-3 rounded-full bg-white/15 px-2 py-2">
             <button
               type="button"
-              onClick={() => setScreen("teaser")}
+              onClick={() => setScreen("quiz")}
               className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white text-stone-800"
             >
               <ArrowIcon2 className="rotate-180" />
@@ -448,12 +415,16 @@ export function QuizApp() {
             </div>
           </div>
           <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <h1 className="text-[32px] font-extrabold leading-9">Готовы перейти к плану?</h1>
+            <h1 className="text-[32px] font-extrabold leading-9">
+              План собран.
+              <br />
+              Забери его сейчас
+            </h1>
             <p className="mt-3 text-[15px] text-white/85">
               Разовая оплата — без подписки и обязательств.
             </p>
             <div className="mt-8 w-full rounded-[28px] bg-white/15 p-5 text-left">
-              <p className="font-extrabold">{BRAND.name} план</p>
+              <p className="font-extrabold">⭐️ {BRAND.name} план</p>
               <p className="mt-2 text-sm leading-6 text-white/85">
                 Меню на 14 дней, список покупок, рефиды, тренировки под {gymName || "твой зал"} и выход из диеты.
               </p>
@@ -468,14 +439,11 @@ export function QuizApp() {
               placeholder="Email для ссылки на план"
               className="mt-6 w-full rounded-2xl border-0 bg-white px-4 py-4 text-stone-900 outline-none"
             />
-            <label className="mt-4 flex items-start gap-3 text-left text-xs text-white/85">
-              <input
-                type="checkbox"
-                className="mt-0.5"
+            <div className="mt-4 w-full space-y-3 text-left">
+              <PayCheck
                 checked={consentPd}
-                onChange={(e) => setConsentPd(e.target.checked)}
-              />
-              <span>
+                onChange={setConsentPd}
+              >
                 Соглашаюсь с{" "}
                 <Link className="underline" href="/privacy">
                   политикой ПДн
@@ -484,20 +452,14 @@ export function QuizApp() {
                 <Link className="underline" href="/offer">
                   офертой
                 </Link>
-                .
-              </span>
-            </label>
-            <label className="mt-2 flex items-start gap-3 text-left text-xs text-white/85">
-              <input
-                type="checkbox"
-                className="mt-0.5"
+              </PayCheck>
+              <PayCheck
                 checked={consentHealth}
-                onChange={(e) => setConsentHealth(e.target.checked)}
-              />
-              <span>
+                onChange={setConsentHealth}
+              >
                 Даю согласие на обработку данных о здоровье только для расчёта плана.
-              </span>
-            </label>
+              </PayCheck>
+            </div>
           </div>
           <button
             type="button"
@@ -1116,12 +1078,45 @@ function HintBox({
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function PayCheck({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="rounded-[16px] bg-stone-50 p-3">
-      <p className="text-stone-400">{label}</p>
-      <p className="font-extrabold">{value}</p>
-    </div>
+    <label className="flex cursor-pointer items-start gap-3 text-left text-xs leading-5 text-white/90">
+      <input
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span
+        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+          checked
+            ? "border-white bg-white text-brand-600"
+            : "border-white/70 bg-white/10"
+        }`}
+      >
+        {checked ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+            <path
+              d="M2 6.2 4.6 9 10 3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : null}
+      </span>
+      <span>{children}</span>
+    </label>
   );
 }
 

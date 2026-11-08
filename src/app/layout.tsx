@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   title: `${BRAND.name} — сушка без потери мышц`,
   description:
     "Персональный план PSMF: белок, меню, рефиды и тренировки под твой зал. Узнай, сколько жира можно сбросить за 2–4 недели.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
