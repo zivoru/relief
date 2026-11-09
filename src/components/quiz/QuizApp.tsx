@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Ms } from "@/components/plan/Icon";
 import { BodyFatCard } from "@/components/quiz/BodyFatCard";
+import { TasteCard, preloadTastePhoto } from "@/components/quiz/TasteCard";
 import {
   ArrowIcon2,
   Choice,
@@ -15,6 +17,7 @@ import {
 } from "@/components/quiz/ui";
 import { trackGoal } from "@/lib/analytics";
 import { BRAND } from "@/lib/brand";
+import { wantsSkipPaywall } from "@/lib/paywall";
 import {
   ALLERGENS,
   BODY_FAT_OPTIONS,
@@ -98,14 +101,14 @@ const ALL_STEPS: {
   },
   {
     id: "tastes",
-    enabled: false,
+    enabled: true,
     label: "Вкусы",
     title: "Что тебе нравится?",
     subtitle: "Свайпни вправо — нравится, влево — нет. Так соберём вкусовую карту.",
   },
   {
     id: "allergens",
-    enabled: true,
+    enabled: false,
     label: "Аллергии",
     title: "Аллергии и ограничения",
     subtitle: "Отметь всё, что не должно попасть в меню.",
@@ -126,7 +129,7 @@ const ALL_STEPS: {
   },
   {
     id: "screening",
-    enabled: false,
+    enabled: true,
     label: "Ограничения",
     title: "Важные ограничения",
     subtitle:
@@ -159,6 +162,10 @@ const defaultAnswers: QuizAnswers = {
 
 type Screen = "landing" | "quiz" | "loading" | "pay" | "error";
 
+const SWIPE_MS = 280;
+const SWIPE_THRESHOLD = 90;
+const TASTES_DONE_MS = 500;
+
 function utmFromLocation(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const p = new URLSearchParams(window.location.search);
@@ -176,6 +183,12 @@ export function QuizApp() {
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<QuizAnswers>(defaultAnswers);
   const [foodIndex, setFoodIndex] = useState(0);
+  const [swipe, setSwipe] = useState<"left" | "right" | null>(null);
+  const [returning, setReturning] = useState<"left" | "right" | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<number | null>(null);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [stopInput, setStopInput] = useState("");
   const [email, setEmail] = useState("");
   const [consentPd, setConsentPd] = useState(false);
@@ -203,6 +216,10 @@ export function QuizApp() {
     };
   }, [screen]);
 
+  useEffect(() => {
+    for (const f of FOOD_CARDS.slice(foodIndex, foodIndex + 3)) preloadTastePhoto(f.id);
+  }, [foodIndex]);
+
   const fatOptions = BODY_FAT_OPTIONS[answers.sex];
   const food = FOOD_CARDS[foodIndex];
   const gymName = GYMS.find((g) => g.id === answers.gym)?.name ?? "";
@@ -223,11 +240,59 @@ export function QuizApp() {
     setAnswers((prev) => ({ ...prev, ...partial }));
   }
 
+  function swipeFood(dir: "left" | "right") {
+    if (swipe || !food) return;
+    const id = food.id;
+    setSwipe(dir);
+    setTimeout(() => {
+      setAnswers((prev) =>
+        dir === "right"
+          ? { ...prev, likedFoods: [...prev.likedFoods, id] }
+          : { ...prev, dislikedFoods: [...prev.dislikedFoods, id] },
+      );
+      setFoodIndex((i) => i + 1);
+      setSwipe(null);
+      if (foodIndex === FOOD_CARDS.length - 1) {
+        advanceTimer.current = setTimeout(() => {
+          trackGoal("quiz_step_tastes");
+          setStep((s) => s + 1);
+        }, TASTES_DONE_MS);
+      }
+    }, SWIPE_MS);
+  }
+
+  function endDrag() {
+    if (dragStart.current === null) return;
+    dragStart.current = null;
+    setDragging(false);
+    if (Math.abs(dragX) > SWIPE_THRESHOLD) swipeFood(dragX > 0 ? "right" : "left");
+    setDragX(0);
+  }
+
+  function undoFood() {
+    if (swipe || foodIndex === 0) return;
+    clearTimeout(advanceTimer.current);
+    const prevId = FOOD_CARDS[foodIndex - 1].id;
+    setReturning(answers.likedFoods.includes(prevId) ? "right" : "left");
+    setAnswers((prev) => ({
+      ...prev,
+      likedFoods: prev.likedFoods.filter((x) => x !== prevId),
+      dislikedFoods: prev.dislikedFoods.filter((x) => x !== prevId),
+    }));
+    setFoodIndex((i) => i - 1);
+  }
+
+  function restartTastes() {
+    patch({ likedFoods: [], dislikedFoods: [] });
+    setFoodIndex(0);
+  }
+
   function toggle(list: string[], id: string): string[] {
     return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
   }
 
   function back() {
+    clearTimeout(advanceTimer.current);
     if (step === 1) setScreen("landing");
     else setStep((s) => s - 1);
   }
@@ -241,19 +306,31 @@ export function QuizApp() {
       const res = await fetch("/api/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, utm: utmFromLocation() }),
+        body: JSON.stringify({
+          answers,
+          utm: utmFromLocation(),
+          skipPaywall: wantsSkipPaywall(),
+        }),
       });
       if (!res.ok) throw new Error("quiz failed");
       const data = (await res.json()) as {
         calc: CalcResult;
         orderId: number;
         amountRub: string;
+        token?: string;
+        skipPaywall?: boolean;
       };
       setCalc(data.calc);
       setOrderId(data.orderId);
       setAmountRub(data.amountRub);
       trackGoal("quiz_complete", { category: data.calc.category });
-      setTimeout(() => setScreen("pay"), 2200);
+      setTimeout(() => {
+        if (data.skipPaywall && data.token) {
+          window.location.href = `/pay/success?invId=${data.orderId}&token=${data.token}`;
+          return;
+        }
+        setScreen("pay");
+      }, 2200);
     } catch {
       setScreen("error");
     }
@@ -291,11 +368,11 @@ export function QuizApp() {
         </p>
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-brand-500" />
         <h1 className="mt-8 text-center text-[28px] font-extrabold leading-8 tracking-tight">
-          Вопрос сушки без потери мышц — решён
+          Сушка без потери мышц — по готовому плану
         </h1>
         <p className="mt-3 text-center text-[15px] leading-6 text-stone-500">
-          Индивидуальный план под твой зал, бюджет и вкус — чтобы уходил жир, а
-          мышцы оставались.
+          Индивидуальный план похудения — чтобы уходил жир, а
+          мышцы оставались
         </p>
         <div className="mt-8 rounded-[28px] bg-white p-5 shadow-sm">
           <LandingStep n={1} icon="🏋️" title="Выбери зал, фигуру и вкусы">
@@ -423,14 +500,27 @@ export function QuizApp() {
             <p className="mt-3 text-[15px] text-white/85">
               Разовая оплата — без подписки и обязательств.
             </p>
-            <div className="mt-8 w-full rounded-[28px] bg-white/15 p-5 text-left">
-              <p className="font-extrabold">⭐️ {BRAND.name} план</p>
-              <p className="mt-2 text-sm leading-6 text-white/85">
-                Меню на 14 дней, список покупок, рефиды, тренировки под {gymName || "твой зал"} и выход из диеты.
-              </p>
-              <p className="mt-3 text-sm font-semibold">
-                {price} ₽ разово
-              </p>
+            <div className="mt-8 w-full rounded-[28px] bg-white/15 p-4 text-left">
+              <p className="px-1 font-extrabold">⭐️ {BRAND.name} план</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {[
+                  { icon: "restaurant", label: "Меню 14 дней" },
+                  { icon: "fitness_center", label: `Зал: ${gymName || "твой"}` },
+                  { icon: "shopping_basket", label: "Список покупок" },
+                  { icon: "monitoring", label: "КБЖУ и рефиды" },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2.5"
+                  >
+                    <Ms name={item.icon} size={18} />
+                    <span className="text-[12px] font-semibold leading-4">
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 px-1 text-sm font-semibold">{price} ₽ разово</p>
             </div>
             <input
               type="email"
@@ -628,39 +718,133 @@ export function QuizApp() {
         </div>
       )}
 
+      {current.id === "tastes" && !food && (
+        <div className="-mx-5 overflow-x-clip px-5">
+          <div className="flex h-72 animate-[card-in_260ms_ease-out] flex-col items-center justify-center rounded-[28px] bg-white px-6 text-center shadow-sm">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+              <Ms name="check_circle" rounded size={40} />
+            </span>
+            <p className="mt-4 text-[22px] font-extrabold leading-7">
+              Вкусовая карта готова
+            </p>
+            <p className="mt-2 text-[14px] leading-5 text-stone-500">
+              Нравится: {answers.likedFoods.length} · Не нравится:{" "}
+              {answers.dislikedFoods.length}
+              <br />
+              Соберём меню только из того, что ты ешь.
+            </p>
+          </div>
+          <div className="mt-4 flex justify-center gap-5">
+            <button
+              type="button"
+              onClick={undoFood}
+              className="flex items-center gap-1 text-[13px] font-semibold text-stone-400"
+            >
+              <Ms name="undo" rounded size={16} />
+              Предыдущий продукт
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearTimeout(advanceTimer.current);
+                restartTastes();
+              }}
+              className="flex items-center gap-1 text-[13px] font-semibold text-stone-400"
+            >
+              <Ms name="replay" rounded size={16} />
+              Пройти заново
+            </button>
+          </div>
+        </div>
+      )}
+
       {current.id === "tastes" && food && (
         <>
-          <div className="overflow-hidden rounded-[28px] bg-white shadow-sm">
-            <div className="flex h-56 items-end bg-linear-to-br from-orange-100 to-orange-200 p-5">
-              <div>
-                <p className="text-xl font-extrabold">{food.name}</p>
-                <p className="text-sm text-stone-600">
-                  {food.kcal} ккал · {food.tag}
-                </p>
-              </div>
+          <div className="-mx-5 overflow-x-clip px-5">
+            <div
+              key={food.id}
+              onAnimationEnd={() => setReturning(null)}
+              onPointerDown={(e) => {
+                if (swipe) return;
+                dragStart.current = e.clientX;
+                setDragging(true);
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (dragStart.current === null) return;
+                setDragX(e.clientX - dragStart.current);
+              }}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              style={{
+                transform:
+                  swipe === "left"
+                    ? "translateX(-130%) rotate(-14deg)"
+                    : swipe === "right"
+                      ? "translateX(130%) rotate(14deg)"
+                      : dragX
+                        ? `translateX(${dragX}px) rotate(${dragX / 18}deg)`
+                        : undefined,
+                opacity: swipe ? 0 : 1,
+                transition: swipe
+                  ? `transform ${SWIPE_MS}ms ease-in, opacity ${SWIPE_MS}ms ease-in`
+                  : dragging
+                    ? "none"
+                    : "transform 220ms ease-out",
+                touchAction: "pan-y",
+              }}
+              className={`relative select-none ${dragging ? "cursor-grabbing" : "cursor-grab"} ${
+                swipe
+                  ? ""
+                  : returning === "left"
+                    ? "animate-[card-back-left_320ms_cubic-bezier(.2,.9,.3,1.1)]"
+                    : returning === "right"
+                      ? "animate-[card-back-right_320ms_cubic-bezier(.2,.9,.3,1.1)]"
+                      : "animate-[card-in_220ms_ease-out]"
+              }`}
+            >
+              <TasteCard id={food.id} name={food.name} kcal={food.kcal} tag={food.tag} />
+              <span
+                className="pointer-events-none absolute left-4 top-4 -rotate-12 rounded-xl border-[3px] border-white bg-stone-900/40 px-3 py-1 text-[18px] font-extrabold text-white backdrop-blur-sm"
+                style={{ opacity: swipe === "left" ? 1 : Math.min(1, Math.max(0, -dragX / SWIPE_THRESHOLD)) }}
+              >
+                НЕ ЕМ
+              </span>
+              <span
+                className="pointer-events-none absolute right-4 top-4 rotate-12 rounded-xl border-[3px] border-white bg-brand-500/80 px-3 py-1 text-[18px] font-extrabold text-white backdrop-blur-sm"
+                style={{ opacity: swipe === "right" ? 1 : Math.min(1, Math.max(0, dragX / SWIPE_THRESHOLD)) }}
+              >
+                ХОЧУ
+              </span>
             </div>
           </div>
           <div className="mt-5 flex items-center justify-center gap-5">
             <button
               type="button"
-              className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-white text-xl shadow-sm"
-              onClick={() => {
-                patch({ dislikedFoods: [...answers.dislikedFoods, food.id] });
-                setFoodIndex((i) => Math.min(FOOD_CARDS.length - 1, i + 1));
-              }}
+              aria-label="Предыдущий продукт"
+              disabled={foodIndex === 0}
+              className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white text-stone-400 shadow-sm transition active:scale-90 disabled:opacity-0"
+              onClick={undoFood}
             >
-              ✕
+              <Ms name="undo" rounded size={22} />
             </button>
             <button
               type="button"
-              className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-brand-400 text-xl text-white shadow-[0_8px_20px_rgba(255,138,76,0.45)]"
-              onClick={() => {
-                patch({ likedFoods: [...answers.likedFoods, food.id] });
-                setFoodIndex((i) => Math.min(FOOD_CARDS.length - 1, i + 1));
-              }}
+              disabled={Boolean(swipe)}
+              className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-white text-xl shadow-sm transition active:scale-90 disabled:cursor-pointer"
+              onClick={() => swipeFood("left")}
             >
-              ♥
+              <Ms name="close" rounded weight={500} size={28} className="text-stone-500" />
             </button>
+            <button
+              type="button"
+              disabled={Boolean(swipe)}
+              className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-brand-500 text-xl text-white shadow-[0_8px_20px_rgba(255,138,76,0.45)] transition active:scale-90 disabled:cursor-pointer"
+              onClick={() => swipeFood("right")}
+            >
+              <Ms name="favorite" rounded size={28} className="translate-y-[2px]" />
+            </button>
+            <span className="h-11 w-11" aria-hidden />
           </div>
           <p className="mt-3 text-center text-xs text-stone-400">
             {foodIndex + 1} из {FOOD_CARDS.length}
@@ -756,6 +940,7 @@ export function QuizApp() {
         label={isLast ? "Посчитать план" : "Далее"}
         disabled={!canNext}
         onNext={() => {
+          clearTimeout(advanceTimer.current);
           trackGoal(`quiz_step_${current.id}`);
           if (isLast) void finishQuiz();
           else setStep((s) => s + 1);
@@ -1055,8 +1240,8 @@ function HintBox({
 }) {
   return (
     <div
-      className={`mt-8 rounded-[22px] px-4 py-4 text-left ${
-        good ? "bg-emerald-50" : "bg-orange-50"
+      className={`mt-8 rounded-[22px] border px-4 py-4 text-left ${
+        good ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50"
       }`}
     >
       <p

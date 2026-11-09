@@ -42,8 +42,10 @@ export function PaySuccessClient({
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-4 text-center">
-      <div className="mb-4 h-12 w-12 animate-pulse rounded-full bg-linear-to-br from-brand-400 to-brand-600" />
-      <h1 className="text-2xl font-semibold">{status}</h1>
+      <div className="mb-4 flex h-16 w-16 animate-pulse items-center justify-center rounded-full bg-linear-to-br from-brand-400 to-brand-600 text-3xl">
+        🥗
+      </div>
+      <h1 className="text-2xl font-extrabold">{status}</h1>
       <p className="mt-2 text-sm text-stone-500">Не закрывайте страницу.</p>
       {token ? (
         <a href={`/plan/${token}`} className="mt-6 text-sm underline">

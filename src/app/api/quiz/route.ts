@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { calculate } from "@/lib/psmf/calc";
 import { PRICE_RUB } from "@/lib/psmf/config";
 import { prisma } from "@/lib/db";
+import { allowSkipPaywall } from "@/lib/paywall";
 import { runPlanGeneration } from "@/lib/plan-job";
 import { formatAmount } from "@/lib/robokassa";
 import type { QuizAnswers } from "@/lib/quiz/types";
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     answers?: unknown;
     utm?: Record<string, string>;
+    skipPaywall?: boolean;
   };
   if (!isAnswers(body.answers)) {
     return Response.json({ error: "invalid answers" }, { status: 400 });
@@ -50,11 +52,20 @@ export async function POST(request: Request) {
   after(() => runPlanGeneration(quiz.id));
 
   const order = quiz.orders[0];
+  const skipPaywall = Boolean(body.skipPaywall) && allowSkipPaywall(request);
+  if (skipPaywall) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { status: "paid", paidAt: new Date() },
+    });
+  }
+
   return Response.json({
     quizId: quiz.id,
     orderId: order.id,
     token: order.token,
     amountRub: order.amountRub,
+    skipPaywall,
     calc,
   });
 }

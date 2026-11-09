@@ -62,7 +62,7 @@ export function QuizHeader({
           className="absolute left-0 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white text-lg text-stone-700 shadow-sm"
           aria-label="Назад"
         >
-          <ArrowIcon className="rotate-180" />
+          <ArrowIcon2 className="rotate-180" />
         </button>
         <p className="text-[22px] font-extrabold tracking-tight text-brand-600">
           {BRAND.name}
