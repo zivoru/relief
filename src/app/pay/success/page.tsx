@@ -4,16 +4,27 @@ import { PaySuccessClient } from "./PaySuccessClient";
 async function PaySuccessInner({
   searchParams,
 }: {
-  searchParams: Promise<{ invId?: string; token?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const q = await searchParams;
-  return <PaySuccessClient invId={q.invId ?? ""} token={q.token ?? ""} />;
+  const one = (key: string) => {
+    const v = q[key] ?? q[key.toLowerCase()] ?? q[key[0] + key.slice(1)];
+    return Array.isArray(v) ? v[0] : (v ?? "");
+  };
+  return (
+    <PaySuccessClient
+      invId={one("InvId") || one("invId")}
+      token={one("token")}
+      outSum={one("OutSum")}
+      signature={one("SignatureValue")}
+    />
+  );
 }
 
 export default function PaySuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invId?: string; token?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
     <Suspense

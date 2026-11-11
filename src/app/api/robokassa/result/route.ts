@@ -1,12 +1,14 @@
-import { prisma } from "@/lib/db";
-import { sendPlanEmail } from "@/lib/email";
+import { markOrderPaid } from "@/lib/order-paid";
 import { getRobokassaConfig, resultSignature } from "@/lib/robokassa";
-import type { CalcResult } from "@/lib/quiz/types";
+
+function pick(form: URLSearchParams, name: string) {
+  return form.get(name) ?? form.get(name.toLowerCase()) ?? "";
+}
 
 async function handle(form: URLSearchParams) {
-  const outSum = form.get("OutSum") ?? "";
-  const invId = Number(form.get("InvId") ?? "0");
-  const signature = (form.get("SignatureValue") ?? "").toLowerCase();
+  const outSum = pick(form, "OutSum");
+  const invId = Number(pick(form, "InvId") || "0");
+  const signature = pick(form, "SignatureValue").toLowerCase();
   const cfg = getRobokassaConfig();
 
   const expected = resultSignature({
@@ -16,35 +18,22 @@ async function handle(form: URLSearchParams) {
   }).toLowerCase();
 
   if (!invId || signature !== expected) {
+    console.error("robokassa result bad sign", { outSum, invId, signature, expected });
     return new Response("bad sign", { status: 400 });
   }
 
-  const order = await prisma.order.findUnique({
-    where: { id: invId },
-    include: { quiz: true },
-  });
+  const order = await markOrderPaid(invId);
   if (!order) return new Response("not found", { status: 404 });
-
-  if (order.status !== "paid") {
-    await prisma.order.update({
-      where: { id: invId },
-      data: { status: "paid", paidAt: new Date() },
-    });
-    const email = order.email ?? order.quiz.email;
-    if (email) {
-      const calc = JSON.parse(order.quiz.calcJson) as CalcResult;
-      await sendPlanEmail({
-        to: email,
-        token: order.token,
-        forecastLabel: calc.forecastLabel,
-      });
-    }
-  }
 
   return new Response(`OK${invId}`);
 }
 
 export async function POST(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("json")) {
+    const body = (await request.json()) as Record<string, string>;
+    return handle(new URLSearchParams(body));
+  }
   const text = await request.text();
   return handle(new URLSearchParams(text));
 }

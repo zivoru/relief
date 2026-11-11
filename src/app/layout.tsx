@@ -19,18 +19,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ru" className="h-full antialiased">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0..1,0&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500..700,0..1,0&display=swap"
-          rel="stylesheet"
-        />
-      </head>
       <body className="min-h-full bg-[#f3ece4] font-sans text-foreground">
         <Metrika />
         <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-background">

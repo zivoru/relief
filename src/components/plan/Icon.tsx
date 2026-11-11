@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { getIcon } from "./icon-paths";
 
 export function Ms({
   name,
   fill = true,
   size = 22,
-  weight = 500,
   rounded = false,
   className = "",
 }: {
@@ -17,17 +17,20 @@ export function Ms({
   rounded?: boolean;
   className?: string;
 }) {
+  const icon = getIcon(name, rounded ? "rounded" : "outlined", fill);
+  if (!icon) return null;
   return (
-    <span
-      className={`${rounded ? "material-symbols-rounded" : "material-symbols-outlined"} ${className}`}
-      style={{
-        fontSize: size,
-        fontVariationSettings: `'FILL' ${fill ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' 24`,
-      }}
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox={icon.viewBox}
+      className={`inline-block shrink-0 ${className}`}
+      fill="currentColor"
       aria-hidden
     >
-      {name}
-    </span>
+      <path d={icon.d} />
+    </svg>
   );
 }
 
