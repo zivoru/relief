@@ -79,7 +79,7 @@ export default function OfferPage() {
       </p>
 
       <p className="text-[12px] text-stone-400">
-        Редакция оферты от {new Date().toLocaleDateString("ru-RU")}.
+        Редакция оферты от 12.11.2026.
       </p>
     </LegalShell>
   );
