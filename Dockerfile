@@ -13,7 +13,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
-RUN npx prisma generate && npm run build
+ENV NODE_OPTIONS="--max-old-space-size=1536"
+RUN npm run build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app

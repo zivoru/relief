@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import "@fontsource/manrope/500.css";
+import "@fontsource/manrope/600.css";
+import "@fontsource/manrope/700.css";
+import "@fontsource/manrope/800.css";
 import { Metrika } from "@/components/Metrika";
 import { BRAND } from "@/lib/brand";
 import "./globals.css";
-
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin", "cyrillic"],
-});
 
 export const metadata: Metadata = {
   title: `${BRAND.name} — сушка без потери мышц`,
@@ -20,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ru" className={`${manrope.variable} h-full antialiased`}>
+    <html lang="ru" className="h-full antialiased">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
