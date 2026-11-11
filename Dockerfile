@@ -19,6 +19,10 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
+FROM builder AS migrator
+ENV NODE_ENV=production
+CMD ["npx", "prisma", "db", "push", "--schema=prisma/schema.prisma", "--skip-generate"]
+
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -35,8 +39,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/package.json ./package.json
 COPY docker-entrypoint.sh ./
 
