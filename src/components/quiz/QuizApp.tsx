@@ -17,6 +17,7 @@ import {
 } from "@/components/quiz/ui";
 import { trackGoal } from "@/lib/analytics";
 import { BRAND } from "@/lib/brand";
+import { PRODUCT, SELLER, sellerLine } from "@/lib/legal";
 import { wantsSkipPaywall } from "@/lib/paywall";
 import {
   ALLERGENS,
@@ -406,13 +407,21 @@ export function QuizApp() {
             </p>
           </LandingStep>
         </div>
-        <p className="mt-8 text-center text-xs text-stone-400">
+        <p className="mt-8 text-center text-xs leading-5 text-stone-400">
           <Link href="/offer" className="underline">
             Оферта
           </Link>
           {" · "}
+          <Link href="/refund" className="underline">
+            Возврат
+          </Link>
+          {" · "}
           <Link href="/privacy" className="underline">
             Политика ПДн
+          </Link>
+          {" · "}
+          <Link href="/contacts" className="underline">
+            Контакты
           </Link>
         </p>
         <NextBar
@@ -491,7 +500,7 @@ export function QuizApp() {
               <p className="text-[10px] tracking-[0.2em] text-white/80">ПЛАН</p>
             </div>
           </div>
-          <div className="flex flex-1 flex-col items-center justify-center text-center">
+          <div className="mt-8 flex flex-1 flex-col items-center text-center">
             <h1 className="text-[32px] font-extrabold leading-9">
               План собран.
               <br />
@@ -501,7 +510,7 @@ export function QuizApp() {
               Разовая оплата — без подписки и обязательств.
             </p>
             <div className="mt-8 w-full rounded-[28px] bg-white/15 p-4 text-left">
-              <p className="px-1 font-extrabold">⭐️ {BRAND.name} план</p>
+              <p className="px-1 font-extrabold">⭐️ {PRODUCT.name}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {[
                   { icon: "restaurant", label: "Меню 14 дней" },
@@ -520,8 +529,40 @@ export function QuizApp() {
                   </div>
                 ))}
               </div>
-              <p className="mt-3 px-1 text-sm font-semibold">{price} ₽ разово</p>
+              <p className="mt-3 px-1 text-sm font-semibold">
+                {price} ₽ разово · {PRODUCT.paymentType}
+              </p>
+              <p className="mt-2 px-1 text-[12px] leading-5 text-white/75">
+                {PRODUCT.delivery}
+              </p>
             </div>
+
+            {/* <div className="mt-3 w-full rounded-[28px] bg-white/15 p-4 text-left text-[12px] leading-5 text-white/85">
+              <p className="text-[13px] font-extrabold text-white">Продавец</p>
+              <p className="mt-1">{sellerLine()}</p>
+              <p>
+                {SELLER.country}, {SELLER.city}
+              </p>
+              <p className="mt-2">
+                <a className="underline" href={`mailto:${SELLER.email}`}>
+                  {SELLER.email}
+                </a>
+                {" · "}
+                <a className="underline" href={SELLER.phoneHref}>
+                  {SELLER.phone}
+                </a>
+              </p>
+              <p className="mt-3 text-white/75">
+                Возврат до выдачи доступа — полный. После открытия плана услуга
+                оказана; возврат при техническом сбое — по правилам на странице{" "}
+                <Link className="underline" href="/refund">
+                  «Возврат»
+                </Link>
+                .
+              </p>
+              <p className="mt-2 text-[11px] text-white/65">{PRODUCT.disclaimer}</p>
+            </div> */}
+
             <input
               type="email"
               value={email}
@@ -537,10 +578,14 @@ export function QuizApp() {
                 Соглашаюсь с{" "}
                 <Link className="underline" href="/privacy">
                   политикой ПДн
-                </Link>{" "}
-                и{" "}
+                </Link>
+                ,{" "}
                 <Link className="underline" href="/offer">
                   офертой
+                </Link>{" "}
+                и{" "}
+                <Link className="underline" href="/refund">
+                  условиями возврата
                 </Link>
               </PayCheck>
               <PayCheck
@@ -555,12 +600,15 @@ export function QuizApp() {
             type="button"
             disabled={busy || !email.includes("@") || !consentPd || !consentHealth}
             onClick={checkout}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white py-[18px] text-[17px] font-extrabold text-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white py-[18px] text-[17px] font-extrabold text-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Переходим к оплате…" : `Оформить за ${price} ₽`}
+            {busy ? "Переходим к оплате…" : `Получить за ${price} ₽`}
           </button>
           <p className="mt-3 text-center text-xs text-white/80">
-            СБП, T-Pay, любые карты
+            СБП, T-Pay, любые карты ·{" "}
+            <Link className="underline" href="/contacts">
+              Контакты
+            </Link>
           </p>
         </div>
       </div>
