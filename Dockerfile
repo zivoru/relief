@@ -19,7 +19,7 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
-FROM builder AS migrator
+FROM deps AS migrator
 ENV NODE_ENV=production
 CMD ["npx", "prisma", "db", "push", "--schema=prisma/schema.prisma", "--skip-generate"]
 

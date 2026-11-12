@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
-import { sendPlanEmail } from "@/lib/email";
+import { markOrderPaid } from "@/lib/order-paid";
 import { buildPaymentUrl } from "@/lib/robokassa";
-import type { CalcResult } from "@/lib/quiz/types";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -36,16 +35,7 @@ export async function POST(request: Request) {
   });
 
   if (process.env.PAYMENT_MODE === "mock" || !process.env.ROBOKASSA_LOGIN) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { status: "paid", paidAt: new Date() },
-    });
-    const calc = JSON.parse(order.quiz.calcJson) as CalcResult;
-    await sendPlanEmail({
-      to: body.email,
-      token: order.token,
-      forecastLabel: calc.forecastLabel,
-    });
+    await markOrderPaid(order.id);
     const appUrl = process.env.APP_URL ?? "http://localhost:3000";
     return Response.json({
       url: `${appUrl}/pay/success?invId=${order.id}&token=${order.token}&mock=1`,
